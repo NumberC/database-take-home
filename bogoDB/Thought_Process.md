@@ -1,0 +1,1 @@
+My thought process was to base this off of historical success or failure and then adjust edges from theres. We use the initial result as our exploration and exploit as much from there as we can. This leads to optimization quickly, but unfortunately does limit our total growth.

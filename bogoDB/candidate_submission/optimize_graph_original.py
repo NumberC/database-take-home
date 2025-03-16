@@ -70,39 +70,20 @@ def verify_constraints(graph, max_edges_per_node, max_total_edges):
 
     return True
 
-def calculate_optimal_weight(node, neighbor, results):
-    """
-    Calculate optimal edge weight based on historical query success rates.
-    
-    The weight could depend on how often this edge has been part of a successful query,
-    and how frequently the nodes are queried together.
-    """
-    edge_success_rate = 0.0
-    num_successful_queries = 0
-    total_queries = 0
 
-    # Loop through detailed results and count how often this edge was used in successful queries
-    for result in results['detailed_results']:
-        paths = result['paths']
-        for path in paths:
-            if path[0] and node in path[1] and neighbor in path[1]:  # Check if the edge exists in the path
-                if result['is_success']:
-                    num_successful_queries += 1
-                total_queries += 1
-    
-    if total_queries > 0:
-        edge_success_rate = num_successful_queries / total_queries
-    
-    # A possible weighting formula
-    return max(1, min(10, edge_success_rate * 10))  # Ensure the weight is between 1 and 10
-
-def optimize_graph(initial_graph, results, num_nodes=NUM_NODES, max_total_edges=MAX_TOTAL_EDGES, max_edges_per_node=MAX_EDGES_PER_NODE):
+def optimize_graph(
+    initial_graph,
+    results,
+    num_nodes=NUM_NODES,
+    max_total_edges=int(MAX_TOTAL_EDGES),
+    max_edges_per_node=MAX_EDGES_PER_NODE,
+):
     """
     Optimize the graph to improve random walk query performance.
-    
+
     Args:
         initial_graph: Initial graph adjacency list
-        results: Query results from initial graph
+        results: Results from queries on the initial graph
         num_nodes: Number of nodes in the graph
         max_total_edges: Maximum total edges allowed
         max_edges_per_node: Maximum edges per node
@@ -111,33 +92,79 @@ def optimize_graph(initial_graph, results, num_nodes=NUM_NODES, max_total_edges=
         Optimized graph
     """
     print("Starting graph optimization...")
-    optimized_graph = initial_graph.copy()
 
-    # Step 1: Analyze query success and path lengths
-    node_query_count = defaultdict(int)
-    for result in results['detailed_results']:
-        target_node = result['target']
-        node_query_count[target_node] += 1
-    
-    # Step 2: Enhance connectivity for frequently queried nodes
-    sorted_nodes = sorted(node_query_count.items(), key=lambda item: item[1], reverse=True)
+    # Create a copy of the initial graph to modify
+    optimized_graph = {}
+    for node, edges in initial_graph.items():
+        optimized_graph[node] = dict(edges)
 
-    for node, _ in sorted_nodes:
-        if len(optimized_graph[node]) < MAX_EDGES_PER_NODE:
-            # Consider adding neighbors that appear frequently in the same paths
-            for neighbor, _ in sorted_nodes:
-                if neighbor != node and neighbor not in optimized_graph[node]:
-                    weight = calculate_optimal_weight(node, neighbor, results)
-                    optimized_graph[node][neighbor] = weight
-                    optimized_graph[neighbor][node] = weight
-                    
-                    # Stop when the node has enough edges
-                    if len(optimized_graph[node]) >= MAX_EDGES_PER_NODE:
-                        break
+    # =============================================================
+    # TODO: Implement your optimization strategy here
+    # =============================================================
+    #
+    # Your goal is to optimize the graph structure to:
+    # 1. Increase the success rate of queries
+    # 2. Minimize the path length for successful queries
+    #
+    # You have access to:
+    # - initial_graph: The current graph structure
+    # - results: The results of running queries on the initial graph
+    #
+    # Query results contain:
+    # - Each query's target node
+    # - Whether the query was successful
+    # - The path taken during the random walk
+    #
+    # Remember the constraints:
+    # - max_total_edges: Maximum number of edges in the graph
+    # - max_edges_per_node: Maximum edges per node
+    # - All nodes must remain in the graph
+    # - Edge weights must be positive and ≤ 10
 
-    # Step 3: Verify the constraints
+    # ---------------------------------------------------------------
+    # EXAMPLE: Simple strategy to meet edge count constraint
+    # This is just a basic example - you should implement a more
+    # sophisticated strategy based on query analysis!
+    # ---------------------------------------------------------------
+
+    # Count total edges in the initial graph
+    total_edges = sum(len(edges) for edges in optimized_graph.values())
+
+    # If we exceed the limit, we need to prune edges
+    if total_edges > max_total_edges:
+        print(
+            f"Initial graph has {total_edges} edges, need to remove {total_edges - max_total_edges}"
+        )
+
+        # Example pruning logic (replace with your optimized strategy)
+        edges_to_remove = total_edges - max_total_edges
+        removed = 0
+
+        # Sort nodes by number of outgoing edges (descending)
+        nodes_by_edge_count = sorted(
+            optimized_graph.keys(), key=lambda n: len(optimized_graph[n]), reverse=True
+        )
+
+        # Remove edges from nodes with the most connections first
+        for node in nodes_by_edge_count:
+            if removed >= edges_to_remove:
+                break
+
+            # As a simplistic example, remove the edge with lowest weight
+            if len(optimized_graph[node]) > 1:  # Ensure node keeps at least one edge
+                # Find edge with minimum weight
+                min_edge = min(optimized_graph[node].items(), key=lambda x: x[1])
+                del optimized_graph[node][min_edge[0]]
+                removed += 1
+
+    # =============================================================
+    # End of your implementation
+    # =============================================================
+
+    # Verify constraints
     if not verify_constraints(optimized_graph, max_edges_per_node, max_total_edges):
-        print("WARNING: Optimized graph does not meet constraints!")
+        print("WARNING: Your optimized graph does not meet the constraints!")
+        print("The evaluation script will reject it. Please fix the issues.")
 
     return optimized_graph
 
